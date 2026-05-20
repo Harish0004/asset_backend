@@ -30,6 +30,9 @@ public class AssetAssignmentHistory {
     @Column(name = "returned_at")
     private LocalDateTime returnedAt;
 
+    @Column(name = "detail")
+    private String Detail;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "action_by_admin_id", nullable = false)
     private User actionByAdmin;

@@ -80,6 +80,13 @@ public class GlobalExceptionHandler {
                         .build());
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<?> handleBusinessLogicErrors(IllegalStateException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
         log.error("Unexpected error", ex);
