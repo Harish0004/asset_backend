@@ -7,17 +7,36 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface TicketRepository extends JpaRepository<Ticket, Long> {
 
-    // Fetches all corporate system tickets safely ordered by newest creation date
-    List<Ticket> findAllByOrderByCreatedAtDesc();
+    @Query("SELECT t FROM Ticket t " +
+            "LEFT JOIN FETCH t.asset " +
+            "LEFT JOIN FETCH t.raisedBy " +
+            "LEFT JOIN FETCH t.technician " +
+            "ORDER BY t.createdAt DESC")
+    List<Ticket> findAllWithDetailsOrderByCreatedAtDesc();
 
-    // Fetches tickets assigned directly to a targeted technician profile context
-    @Query("SELECT t FROM Ticket t WHERE t.technician.id = :techId ORDER BY t.createdAt DESC")
-    List<Ticket> findByTechnicianId(@Param("techId") Long techId);
+    @Query("SELECT t FROM Ticket t " +
+            "LEFT JOIN FETCH t.asset " +
+            "LEFT JOIN FETCH t.raisedBy " +
+            "LEFT JOIN FETCH t.technician " +
+            "WHERE t.technician.id = :techId ORDER BY t.createdAt DESC")
+    List<Ticket> findByTechnicianIdWithDetails(@Param("techId") Long techId);
 
-    // Fetches personal tickets written by a specific employee
-    List<Ticket> findByRaisedByIdOrderByCreatedAtDesc(Long employeeId);
+    @Query("SELECT t FROM Ticket t " +
+            "LEFT JOIN FETCH t.asset " +
+            "LEFT JOIN FETCH t.raisedBy " +
+            "LEFT JOIN FETCH t.technician " +
+            "WHERE t.raisedBy.id = :employeeId ORDER BY t.createdAt DESC")
+    List<Ticket> findByRaisedByIdWithDetailsOrderByCreatedAtDesc(@Param("employeeId") Long employeeId);
+
+    @Query("SELECT t FROM Ticket t " +
+            "LEFT JOIN FETCH t.asset " +
+            "LEFT JOIN FETCH t.raisedBy " +
+            "LEFT JOIN FETCH t.technician " +
+            "WHERE t.id = :id")
+    Optional<Ticket> findByIdWithDetails(@Param("id") Long id);
 }

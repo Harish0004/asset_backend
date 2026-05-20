@@ -1,19 +1,23 @@
 package com.example.asset.service;
 
 import com.example.asset.dto.TicketRequest;
+import com.example.asset.dto.TicketResponseDTO;
 import com.example.asset.entity.Asset;
 import com.example.asset.entity.Ticket;
 import com.example.asset.entity.User;
 import com.example.asset.exception.InvalidWorkflowException;
 import com.example.asset.exception.ResourceNotFoundException;
 import com.example.asset.exception.TicketAccessDeniedException;
+import com.example.asset.mapper.TicketMapper;
 import com.example.asset.repository.AssetRepository;
 import com.example.asset.repository.TicketRepository;
 import com.example.asset.repository.UserRepository;
+import com.example.asset.util.TicketSlaPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -27,22 +31,28 @@ public class TicketService {
     /**
      * Admin workflow operation: Fetches all corporate platform tickets.
      */
-    public List<Ticket> getAllTickets() {
-        return ticketRepository.findAllByOrderByCreatedAtDesc();
+    public List<TicketResponseDTO> getAllTickets() {
+        return ticketRepository.findAllWithDetailsOrderByCreatedAtDesc().stream()
+                .map(TicketMapper::toDto)
+                .toList();
     }
 
     /**
      * Employee workflow operation: Fetches tickets raised by a specific user profile context.
      */
-    public List<Ticket> getTicketsByEmployee(Long employeeId) {
-        return ticketRepository.findByRaisedByIdOrderByCreatedAtDesc(employeeId);
+    public List<TicketResponseDTO> getTicketsByEmployee(Long employeeId) {
+        return ticketRepository.findByRaisedByIdWithDetailsOrderByCreatedAtDesc(employeeId).stream()
+                .map(TicketMapper::toDto)
+                .toList();
     }
 
     /**
      * Technician workflow operation: Fetches tickets dispatched to a specific technician account.
      */
-    public List<Ticket> getTicketsByTechnician(Long techId) {
-        return ticketRepository.findByTechnicianId(techId);
+    public List<TicketResponseDTO> getTicketsByTechnician(Long techId) {
+        return ticketRepository.findByTechnicianIdWithDetails(techId).stream()
+                .map(TicketMapper::toDto)
+                .toList();
     }
 
     /**
@@ -51,7 +61,7 @@ public class TicketService {
      * the underlying asset condition shifts instantly to 'REPAIR_NEEDED'.
      */
     @Transactional
-    public Ticket createTicket(TicketRequest request, User currentUser) {
+    public TicketResponseDTO createTicket(TicketRequest request, User currentUser) {
         // Enforce basic request data validations
         if (request.getAssetId() == null) {
             throw new InvalidWorkflowException("Validation failed: Asset selection is mandatory to raise a ticket.");
@@ -72,12 +82,15 @@ public class TicketService {
             priorityValue = Ticket.Priority.MEDIUM; // Default fallback assignment
         }
 
+        LocalDateTime now = LocalDateTime.now();
         Ticket ticket = Ticket.builder()
                 .asset(asset)
                 .raisedBy(currentUser)
                 .issueDescription(request.getIssueDescription().trim())
                 .priority(priorityValue)
                 .status(Ticket.TicketStatus.OPEN)
+                .createdAt(now)
+                .deadlineAt(TicketSlaPolicy.deadlineFrom(now, priorityValue))
                 .build();
 
         // [AUTOMATION CHECK 1] Check priority boundary thresholds to auto-flag hardware health states
@@ -86,7 +99,10 @@ public class TicketService {
             assetRepository.save(asset);
         }
 
-        return ticketRepository.save(ticket);
+        ticketRepository.save(ticket);
+        return ticketRepository.findByIdWithDetails(ticket.getId())
+                .map(TicketMapper::toDto)
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket could not be loaded after creation"));
     }
 
     /**
@@ -94,7 +110,7 @@ public class TicketService {
      * Enforces strict role verification and duplicate dispatch checks.
      */
     @Transactional
-    public Ticket dispatchToTechnician(Long ticketId, Long technicianId) {
+    public TicketResponseDTO dispatchToTechnician(Long ticketId, Long technicianId) {
         // 1. Fetch and validate the ticket existence
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment aborted: Ticket record not found with ID: " + ticketId));
@@ -114,7 +130,10 @@ public class TicketService {
         }
 
         ticket.setTechnician(technician);
-        return ticketRepository.save(ticket);
+        ticketRepository.save(ticket);
+        return ticketRepository.findByIdWithDetails(ticketId)
+                .map(TicketMapper::toDto)
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found after dispatch"));
     }
 
     /**
@@ -122,7 +141,7 @@ public class TicketService {
      * AUTOMATION RULE: Moving status to RESOLVED auto-reverts the asset state parameters back to AVAILABLE and GOOD.
      */
     @Transactional
-    public Ticket updateTicketStatus(Long ticketId, String statusString, User currentTech) {
+    public TicketResponseDTO updateTicketStatus(Long ticketId, String statusString, User currentTech) {
         // 1. Locate the tracking ticket record
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new ResourceNotFoundException("Workflow tracking failed: Ticket not found with ID: " + ticketId));
@@ -147,11 +166,18 @@ public class TicketService {
         if (newStatus == Ticket.TicketStatus.IN_PROGRESS) {
             asset.setStatus(Asset.AssetStatus.valueOf("UNDER_MAINTENANCE"));
         } else if (newStatus == Ticket.TicketStatus.RESOLVED) {
-            asset.setStatus(Asset.AssetStatus.valueOf("AVAILABLE"));
+            // Keep the asset assigned if it still has an assignee; otherwise return it to inventory
+            asset.setStatus(asset.getAssignedTo() != null
+                    ? Asset.AssetStatus.ASSIGNED
+                    : Asset.AssetStatus.AVAILABLE);
             asset.setConditionState(Asset.ConditionState.valueOf("GOOD")); // Hardware is verified fixed and returned to stockpools automatically
+            ticket.setResolvedAt(LocalDateTime.now());
         }
 
         assetRepository.save(asset);
-        return ticketRepository.save(ticket);
+        ticketRepository.save(ticket);
+        return ticketRepository.findByIdWithDetails(ticketId)
+                .map(TicketMapper::toDto)
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found after status update"));
     }
 }

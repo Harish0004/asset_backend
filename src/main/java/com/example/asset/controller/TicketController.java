@@ -2,7 +2,7 @@ package com.example.asset.controller;
 
 import com.example.asset.dto.TicketDispatchDTO;
 import com.example.asset.dto.TicketRequest;
-import com.example.asset.entity.Ticket;
+import com.example.asset.dto.TicketResponseDTO;
 import com.example.asset.entity.User;
 import com.example.asset.security.UserPrincipal;
 import com.example.asset.service.TicketService;
@@ -23,7 +23,7 @@ public class TicketController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'EMPLOYEE')")
-    public ResponseEntity<List<Ticket>> getTickets(@AuthenticationPrincipal UserPrincipal userPrincipal) {
+    public ResponseEntity<List<TicketResponseDTO>> getTickets(@AuthenticationPrincipal UserPrincipal userPrincipal) {
         User currentUser = userPrincipal.getUser();
         String role = currentUser.getRole().name();
 
@@ -38,7 +38,7 @@ public class TicketController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'EMPLOYEE')")
-    public ResponseEntity<Ticket> raiseTicket(
+    public ResponseEntity<TicketResponseDTO> raiseTicket(
             @RequestBody TicketRequest request,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
@@ -48,7 +48,7 @@ public class TicketController {
 
     @PutMapping("/{id}/dispatch")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Ticket> dispatchTicket(
+    public ResponseEntity<TicketResponseDTO> dispatchTicket(
             @PathVariable Long id,
             @RequestBody TicketDispatchDTO dispatchDto) {
 
@@ -57,7 +57,7 @@ public class TicketController {
 
     @PutMapping("/{id}/status")
     @PreAuthorize("hasRole('TECHNICIAN')")
-    public ResponseEntity<Ticket> updateTicketStatus(
+    public ResponseEntity<TicketResponseDTO> updateTicketStatus(
             @PathVariable Long id,
             @RequestParam String status,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {

@@ -1,5 +1,6 @@
 package com.example.asset.entity;
 
+import com.example.asset.util.TicketSlaPolicy;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -51,10 +52,19 @@ public class Ticket {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "deadline_at")
+    private LocalDateTime deadlineAt;
+
+    @Column(name = "resolved_at")
+    private LocalDateTime resolvedAt;
+
     @PrePersist
     protected void onCreate() {
         if (this.createdAt == null) {
             this.createdAt = LocalDateTime.now();
+        }
+        if (this.deadlineAt == null) {
+            this.deadlineAt = TicketSlaPolicy.deadlineFrom(this.createdAt, this.priority);
         }
     }
 

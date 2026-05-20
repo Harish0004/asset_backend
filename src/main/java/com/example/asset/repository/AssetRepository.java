@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -29,4 +30,7 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
             @Param("search") String search,
             Pageable pageable
     );
+
+    @Query("SELECT a FROM Asset a LEFT JOIN FETCH a.assignedTo")
+    List<Asset> findAllWithAssignedUser();
 }
