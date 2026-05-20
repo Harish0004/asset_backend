@@ -57,6 +57,8 @@ public class GlobalExceptionHandler {
                         .build());
     }
 
+
+
     @ExceptionHandler(ResourceAlreadyExistsException.class)
     public ResponseEntity<ErrorResponse> handleResourceAlreadyExists(ResourceAlreadyExistsException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(
@@ -85,6 +87,42 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException ex) {
+        log.warn("Resource missing context matching: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ErrorResponse.builder()
+                        .timestamp(Instant.now())
+                        .status(HttpStatus.NOT_FOUND.value())
+                        .error(HttpStatus.NOT_FOUND.getReasonPhrase())
+                        .message(ex.getMessage())
+                        .build());
+    }
+
+    @ExceptionHandler(InvalidWorkflowException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidWorkflow(InvalidWorkflowException ex) {
+        log.warn("Lifecycle or constraint workflow rejected: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                ErrorResponse.builder()
+                        .timestamp(Instant.now())
+                        .status(HttpStatus.BAD_REQUEST.value())
+                        .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+                        .message(ex.getMessage())
+                        .build());
+    }
+
+    @ExceptionHandler(TicketAccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleTicketAccessDenied(TicketAccessDeniedException ex) {
+        log.warn("Security policy boundary violation caught: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                ErrorResponse.builder()
+                        .timestamp(Instant.now())
+                        .status(HttpStatus.FORBIDDEN.value())
+                        .error(HttpStatus.FORBIDDEN.getReasonPhrase())
+                        .message(ex.getMessage())
+                        .build());
     }
 
     @ExceptionHandler(Exception.class)

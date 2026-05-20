@@ -16,16 +16,23 @@ public class Ticket {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // FetchType.LAZY prevents unnecessary EAGER joins and keeps database queries fast
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "asset_id", nullable = false)
+    @ToString.Exclude // Exclude to prevent accidental recursive stack overflows in Lombok logging
+    @EqualsAndHashCode.Exclude
     private Asset asset;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "raised_by_user_id", nullable = false)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private User raisedBy;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "technician_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private User technician;
 
     @Column(name = "issue_description", nullable = false, columnDefinition = "TEXT")
@@ -33,10 +40,12 @@ public class Ticket {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private Priority priority = Priority.MEDIUM;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private TicketStatus status = TicketStatus.OPEN;
 
     @Column(name = "created_at", updatable = false)
@@ -44,7 +53,9 @@ public class Ticket {
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
     }
 
     public enum Priority {
@@ -52,6 +63,6 @@ public class Ticket {
     }
 
     public enum TicketStatus {
-        OPEN, IN_PROGRESS, RESOLVED, CLOSED
+        OPEN, IN_PROGRESS, RESOLVED
     }
 }
